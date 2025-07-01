@@ -32,20 +32,41 @@ class Dataset:
     # ------------------------------------------------------------------ #
     # construction / I-O
     # ------------------------------------------------------------------ #
-    def __init__(self, data_dir: str, features: Iterable[str]=None) -> None:
-        self.data_dir = data_dir
-        path = lambda fname: os.path.join(self.data_dir, fname)
+    def __init__(self, data_dir: str, scaler_dir : str='⚖️', features: Iterable[str]=None) -> None:
+        path = lambda fname: os.path.join(data_dir, fname)
         self.xCC = pd.read_pickle(path("xCC.pkl"))
         self.yCC = pd.read_pickle(path("yCC.pkl"))
         if features is not None:
             self.xCC = self.xCC[features]
         with open(path("masterList.pkl"), "rb") as fp:
             self.masterList = pickle.load(fp)
-        if os.path.exists(path("scaler.pkl")):
-            with open(path("scaler.pkl"), "rb") as fp:
+        spath = lambda fname: os.path.join(scaler_dir, fname)
+        if os.path.exists(spath("scaler.pkl")):
+            with open(spath("scaler.pkl"), "rb") as fp:
                 self.scaler = pickle.load(fp)
         else:
             self.scaler = RobustScaler()
+
+    def trim(self, size: int | None = None, *, random_state: int | None = None):
+        """
+        Randomly subsample the dataset to the requested size.
+
+        Parameters
+        ----------
+        size : int | None
+            Number of rows to keep. If None, the dataset is left unchanged.
+        random_state : int | None, optional
+            Seed for reproducible subsampling.
+        """
+        if size is None:
+            return
+
+        # draw a random subset of indices and keep rows aligned across xCC and yCC
+        # idx = self.xCC.sample(n=size, random_state=random_state, replace=False).index
+        # self.xCC = self.xCC.loc[idx]
+        # self.yCC = self.yCC.loc[idx]
+        self.xCC = self.xCC.iloc[:size]
+        self.yCC = self.yCC.iloc[:size]
 
     # ---- shifted series (legacy support) ----------------------------- #
     def add_shifted_series(

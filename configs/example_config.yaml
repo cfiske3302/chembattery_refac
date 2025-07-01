@@ -1,0 +1,51 @@
+model:
+  model_name: 'MLP' #name of model. Currenly on MLP exists
+  #model params
+  input_dim: 6
+  output_dim: 1
+  #for MLP, hidden dims is either an int, in which case the model will be input_dim, 5, hidden_dim, hidden_dim, output_dim
+  hidden_dim: 256
+  #can also specify a custom set of hidden dims TODO: test this!
+  hidden_dim: 
+   - 128
+   - 256
+   - 256
+   - 128
+   - 64
+  #number of models to be used. If 1 or not present, will not use ensembling
+  num_models: 5
+
+
+data:
+  date_str: 2024-08-21 #dir name of data
+  data_dir: "../Features/" #dir with all data
+  test_split: 3,4 #number of cycles or cells not to be used in training, or to evaluate on
+  scaler_date: 2024-08-21 #dir scaler is used in
+  dataset_max: 3e6 #clips data to this size. good for quick training during testing. (make sure test_split is present in data being used)
+  preprocessing: #preprocessing steps to use
+    - shifted_NEP #this adds shifted Y values
+  features: #features to train on. Don't include features that are made during preprocessing
+    - "Energy"
+    - "Capacity"
+    - "Voltage-8"
+    - "Energy-8"
+    - "Power-8"
+    # - "shifted_NEP"
+  split_on: "cell_num" #one of cell_num or cycle. What test_split refers to
+
+trainer:
+  epochs: 2 #ignored during eval
+  save_dir: "./runs/" #experiment dir
+  exp_name: "train_pinn_1e6" #name of dir where we will save this experiment
+  batch_size: 1024
+  optimizer: "adam" #what optimizer to use. adam or SGD. default to adam
+  learning_rate: 0.001
+  beta_1: 0.9 #if using adam
+  beta_2: 0.999 #if using adam
+  momentum: 0.0 #if using SGD
+  pos_enc: False #NOT IMPLEMENTED
+  initial_est_model: "reproduce_lfp" #NOT IMPLEMENTED
+  pinn_weight: 0.1 #pinn_weight. defaults to 0 if not present. if >1 then custom training protocol used
+  resample_alg: "bootstrap" #one of "bootstrap" or "subsamle". Selects how to resample data during ensembling
+  proportion: 0.7 #proportion of data to resample when ensemling. default to 0.7
+  GPUs: 0 #GPU number to run experiments on. Defaults to a GPU with most available memory. Allows you to run multiple experiments at the same time. TODO: allow ensemble methods to train many things in parallel

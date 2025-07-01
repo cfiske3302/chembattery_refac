@@ -3,48 +3,48 @@ from dataclasses import dataclass
 import os
 import pickle
 import numpy as np
-from typing import List
+from typing import List, Optional, Iterable, Union
 import tensorflow as tf
 import multiprocessing as mp
-
-
-@dataclass
-class ModelConfig:
-    learning_rate: float
-    batch_size: int
-    num_epochs: int
-    optimizer: str = "adam"
-    #for adam
-    beta_1: float=0.9
-    beta_2: float=0.999
-    #for SGD
-    momentum: float=0.0
-    
+from sklearn.preprocessing import RobustScaler
+from defaults import *
+from gpu_utils import pick_idle_gpu
 
 OPTIMIZERS = {
     "Adam": tf.keras.optimizers.legacy.Adam,
     "SGD": tf.keras.optimizers.legacy.SGD,
 }
+# @dataclass
+# class ModelConfig:
+#     learning_rate: float
+#     batch_size: int
+#     num_epochs: int
+#     optimizer: str = "adam"
+#     #for adam
+#     beta_1: float=0.9
+#     beta_2: float=0.999
+#     #for SGD
+#     momentum: float=0.0
 
 class Model(ABC):
-    def __init__(self, ModelConfig: ModelConfig): 
-        self.config = ModelConfig
+    def __init__(self, config, scaler: RobustScaler = None): 
+        self.config = config
         self.model = None
         self._create_optimizer()
-        print(self.optimizer)
+        self.scaler = scaler
 
     def _create_optimizer(self):
-        opt = self.config.optimizer
+        opt = self.config.trainer.get("optimizer", DEFAULT_OPTIMIZER)
         if opt=="adam":
             self.optimizer = tf.keras.optimizers.legacy.Adam(
-                learning_rate=self.config.learning_rate,
-                beta_1=self.config.beta_1,
-                beta_2=self.config.beta_2
+                learning_rate=self.config.trainer.learning_rate,
+                beta_1=self.config.trainer.get("beta_1", DEFAULT_BETA_1),
+                beta_2=self.config.trainer.get("beta_2", DEFAULT_BETA_2)
             )
         elif opt=="SGD":
             self.optimizer = tf.keras.optimizers.legacy.SGD(
-                learning_rate=self.config.learning_rate,
-                momentum=self.config.momentum
+                learning_rate=self.config.trainer.get("learning_rate", DEFAULT_LEARNING_RATE),
+                momentum=self.config.trainer.get("momentum", DEFAULT_MOMENTUM)
             )
         elif opt is None:
             self.optimizer = None
@@ -54,16 +54,38 @@ class Model(ABC):
 
 
     @abstractmethod
-    def train(self, X_data, y_data, verbose=False):
+    def train(self, X_data, y_data, verbose=False, GPU=None):
         """Train the model with the provided data."""
         pass
 
     @abstractmethod
-    def predict(self, X_data):
-        """Make predictions using the trained model."""
-        return self.model.predict(X_data)
+    def predict(self, X_data, GPU=None):
+        """
+        Make predictions using the trained model.
 
-    def save(self, path: str):
+        Parameters
+        ----------
+        X_data : array-like
+        GPU : int | str | None
+            • int  – specific GPU index  
+            • "auto" (default) – automatically pick an idle GPU  
+            • None – let TensorFlow choose the device.
+        """
+        # Resolve GPU automatically, if requested
+        if GPU is not None:
+            with tf.device(f"/GPU:{GPU}"):
+                predictions = self.model.predict(X_data)
+        else:
+            predictions = self.model.predict(X_data)
+        return predictions
+    
+    def save(self, path):
+        self.model.save(os.path.join(path, "model"))
+    
+    def load(self, path):
+        self.model = tf.keras.models.load_model(os.path.join(path, "model"))
+
+    def save_model_state(self, path: str):
         os.makedirs(path, exist_ok=True)
         # Save Keras model
         self.model.save(os.path.join(path, "model"))
@@ -80,7 +102,7 @@ class Model(ABC):
             with open(os.path.join(path, "optimizer.pkl"), "wb") as f:
                 pickle.dump(optimizer_weights, f)
 
-    def load(self, path: str):
+    def load_model_state(self, path: str):
         # Load Keras model
         self.model = tf.keras.models.load_model(os.path.join(path, "model"))
         # Load the rest of the instance
@@ -175,7 +197,9 @@ class EnsembleModel:
     #         with tf.device(f'/GPU:{gpu_idx}'):
     #             model.train(X_data, y_data)
 
-    def train(self, X_data, y_data, resample="subsample", proportion: float=0.7, available_gpus: List[int]=None, **kwargs):
+    def train(self, X_data, y_data, resample="subsample", proportion: float = 0.7,
+              available_gpus: Iterable[int] = None,
+              **kwargs):
         """
         Train each model in the ensemble, distributing them across available GPUs if specified.
 
@@ -190,11 +214,26 @@ class EnsembleModel:
                 custom: use a custom sampling function provided in kwargs
             proportion: proportion of data to use for subsampling (if resample is "subsample" or "bootstrap").
         """
-
+        if resample == "subsample":
+            resample = lambda X, y: self.subsample_data(X, y, proportion)
+        elif resample == "bootstrap":
+            resample = lambda X, y: self.bootstrap_data(X, y, proportion)
+        elif resample == "full":
+            resample = lambda X, y: (X, y)
+        elif resample == "custom":
+            if "custom_sampling_func" not in kwargs:
+                raise ValueError("Custom sampling function must be provided in kwargs.")
+            resample = kwargs["custom_sampling_func"]
+        else:
+            raise ValueError(f"Unrecognized resampling method: {resample}")
         
-        if available_gpus is None:
+
+        if available_gpus is None or len(available_gpus) == 1:
+            # Only one GPU, train sequentially on that GPU
+            print(f"GPU bassed to ensemble is {available_gpus}")
+            gpu_idx = None if available_gpus is None else available_gpus[0]
             for model in self.models:
-                model.train(X_data, y_data)
+                model.train(*resample(X_data, y_data), GPU=gpu_idx, verbose=True)     
         elif len(available_gpus) > 1:
             # TODO
             raise NotImplementedError("Parallel training across multiple GPUs is not yet implemented.")
@@ -215,21 +254,14 @@ class EnsembleModel:
             # for p in processes:
             #     p.join()
 
-            # print("All models have been trained.")
+            # print("All models have been trained.")       
 
-        elif len(available_gpus) == 1:
-            # Only one GPU, train sequentially on that GPU
-            gpu_idx = available_gpus[0]
-            for model in self.models:
-                with tf.device(f'/GPU:{gpu_idx}'):
-                    model.train(X_data, y_data)            
-
-    def predict(self, X_data):
-        predictions = [model.predict(X_data) for model in self.models]
+    def predict(self, X_data, GPU=None):
+        predictions = [model.predict(X_data, GPU) for model in self.models]
         weighted_preds = sum(w * p for w, p in zip(self.weights, predictions))
         return weighted_preds
     
-    def save(self, path: str):
+    def save_model_state(self, path: str):
         """
         Save the ensemble state and all constituent models.
 
@@ -248,7 +280,7 @@ class EnsembleModel:
         os.makedirs(models_dir, exist_ok=True)
 
         # Pickle all ensemble attributes except the list of models themselves
-        state = self.__dict__.items()
+        state = self.__dict__.copy()
         state.pop("models")  # Exclude models from the state
         with open(os.path.join(path, "ensemble_state.pkl"), "wb") as f:
             pickle.dump(state, f)
@@ -256,9 +288,9 @@ class EnsembleModel:
         # Save each individual model
         for idx, model in enumerate(self.models):
             model_path = os.path.join(models_dir, f"model_{idx}")
-            model.save(model_path)
+            model.save_model_state(model_path)
 
-    def load(self, path: str):
+    def load_model_state(self, path: str):
         """
         Load the ensemble state and all constituent models from *path*.
         Note: self.models must already contain instantiated Model objects
@@ -289,4 +321,4 @@ class EnsembleModel:
 
         for idx, model in enumerate(self.models):
             model_path = os.path.join(models_dir, f"model_{idx}")
-            model.load(model_path)
+            model.load_model_state(model_path)
