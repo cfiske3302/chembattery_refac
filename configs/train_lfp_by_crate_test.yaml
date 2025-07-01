@@ -4,15 +4,15 @@ model:
   input_dim: 5
   output_dim: 1
   hidden_dim: 256
+  num_models: 1
 
 
 data:
   date_str: 2024-08-21
   data_dir: "../Features/"
-  test_split: 3,4
-  split_on: "cell_num"
+  test_split: 0.5,0.8
+  split_on: "c-rate"
   scaler_date: 2024-08-21
-  dataset_max: 3e6
   features:
     - "Energy"
     - "Capacity"
@@ -23,8 +23,7 @@ data:
 trainer:
   epochs: 5
   save_dir: "./runs/"
-  exp_name: "crate_control"
+  exp_name: "c_rate_test"
   learning_rate: 0.001
   batch_size: 256
   pinn_weight: 0
-  pos_enc: False

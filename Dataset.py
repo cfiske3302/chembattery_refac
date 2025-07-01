@@ -111,17 +111,42 @@ class Dataset:
     # ------------------------------------------------------------------ #
     # splitting
     # ------------------------------------------------------------------ #
+    def add_C_rate(self):
+        if 'c-rate' in self.xCC.index.names:
+            return
+        cell_nums = self.xCC.index.get_level_values("cell_num")
+        labels = cell_nums.map(self.masterList)
+        new_index = pd.MultiIndex.from_arrays(
+            [
+                self.xCC.index.get_level_values("cell_num"),
+                self.xCC.index.get_level_values("cycle"),
+                labels
+            ],
+            names=["cell_num", "cycle", "c-rate"]
+        )
+        self.xCC.index = new_index
+
     def split(
         self,
         test_ids: Sequence,
-        by: str = "cell_num", #one of cell_num or cycle
+        by: str = "cell_num", #one of cell_num or cycle, c-rate
     ):
+        if by=='c-rate':
+            self.add_C_rate()
+        else:
+            test_ids = [int(id) for id in test_ids]
+        
         cycles_all = self.xCC.index.get_level_values(by).unique()
         train = [c for c in cycles_all if c not in test_ids]
-        x_tr = self.xCC.loc[pd.IndexSlice[train], :]
-        y_tr = self.yCC.loc[pd.IndexSlice[train]]
-        x_te = self.xCC.loc[pd.IndexSlice[test_ids], :]
-        y_te = self.yCC.loc[pd.IndexSlice[test_ids]]
+
+        mask_tr = self.xCC.index.get_level_values(by).isin(train)
+        mask_te = self.xCC.index.get_level_values(by).isin(test_ids)
+
+        x_tr = self.xCC.loc[mask_tr, :]
+        y_tr = self.yCC.loc[mask_tr]
+        x_te = self.xCC.loc[mask_te, :]
+        y_te = self.yCC.loc[mask_te]
+
         return x_tr, y_tr, x_te, y_te
 
     # ------------------------------------------------------------------ #
@@ -137,14 +162,12 @@ class Dataset:
 
         x_scaled = self.scaler.transform(x)
         return pd.DataFrame(x_scaled, index=x.index, columns=x.columns)
-
     # ------------------------------------------------------------------ #
     # high-level composite helpers
     # ------------------------------------------------------------------ #
     def get_scaled_split(
         self,
         test_ids: Sequence,
-        features: Iterable[str],
         by: str="cell_num",  # one of cell_num or cycle
     ):
         x_tr, y_tr, x_te, y_te = self.split(test_ids, by)

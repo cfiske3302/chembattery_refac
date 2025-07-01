@@ -123,7 +123,7 @@ if __name__=="__main__":
 
     print("splitting data")
     split_on = cfg.data.get("split_on", "cell_num")
-    test_split = [int(id) for id in cfg.data.test_split.split(',')]
+    test_split = [str(id) for id in cfg.data.test_split.split(',')]
     X_train, X_test, y_train, y_test, scaler = dataset.get_scaled_split(test_split, split_on)
 
     save_path = os.path.join(cfg.trainer.save_dir, cfg.trainer.exp_name)
