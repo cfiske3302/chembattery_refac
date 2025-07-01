@@ -1,0 +1,27 @@
+model:
+  input_dim: 5
+  output_dim: 1
+  hidden_dim: 256
+
+data:
+  date_str: 2025-05-25
+  data_dir: "../Features/"
+  test_split: 3,7,14,17,21,35,36,39 
+  scaler_date: None 
+  features:
+    - "Voltage"
+    - "Energy"
+    - "Power"
+    - "Overpotential-8"
+    - "Power-8"
+
+trainer:
+  epochs: 50
+  dataset_max: -1
+  save_dir: "./runs/"
+  exp_name: "ncm811"
+  learning_rate: 0.001
+  batch_size: 256
+  ensemble: True
+  num_models: 1
+  pos_enc: False

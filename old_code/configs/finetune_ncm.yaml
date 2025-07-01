@@ -1,0 +1,28 @@
+model:
+  input_dim: 5
+  output_dim: 1
+  hidden_dim: 256
+  ft_mod: 
+
+data:
+  date_str: 2025-01-04
+  data_dir: "../../Features/"
+  test_split: 1,6,10,15,26,27
+  scaler_date: 2024-08-21
+  features:
+    - "Energy"
+    - "Capacity"
+    - "Voltage-8"
+    - "Energy-8"
+    - "Power-8"
+
+trainer:
+  epochs: 2
+  save_dir: "./runs/"
+  exp_name: "ncm_ft"
+  batch_size: 256
+  ensemble: True
+  num_models: 3
+  ckpt_dir: "./runs/reproduce_lfp/models/"
+  pos_enc: False
+
