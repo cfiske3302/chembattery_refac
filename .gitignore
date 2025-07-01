@@ -6,3 +6,5 @@ runs/
 
 # Ignore personal access token file
 pat.txt
+
+logs/
