@@ -7,3 +7,4 @@ stuff to do
 - make script to easily test several configs
 - make script to easily make configs
 - let ensembling train models in parallel on multiple GPUs
+- add code to load a model from a directory without know what it is ahead of time (look at saved config)

@@ -146,19 +146,6 @@ class EnsembleModel:
         return X_data[:num_samples], y_data[:num_samples]
     
     def bootstrap_data(self, X_data, y_data, proportion):
-        """
-        Bootstrap sample the data based on the given proportion.
-
-        Args:
-            X_data: Input features.
-            y_data: Target values.
-            proportion: Fraction of the full dataset to draw (0 < proportion < 1).
-
-        Returns:
-            A tuple (X_bootstrap, y_bootstrap) containing samples drawn
-            WITH replacement from the original data, of size
-            int(len(X_data) * proportion).
-        """
         if not (0 < proportion < 1):
             raise ValueError("Proportion must be between 0 and 1.")
         n_samples = int(len(X_data) * proportion)

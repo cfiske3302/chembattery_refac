@@ -89,7 +89,7 @@ class MLP(Model):
         file_writer = tf.summary.create_file_writer(log_dir)
 
         batch_size = self.config.trainer.get("batch_size", DEFAULT_BATCH_SIZE)
-        num_epochs = self.config.trainer.get("num_epochs", DEFAULT_EPOCHS)
+        num_epochs = self.config.trainer.get("epochs", DEFAULT_EPOCHS)
 
         if pinn_weight == 0.0:
             # Standard Keras fit with TensorBoard logging
