@@ -38,8 +38,6 @@ def get_parser():
 
 def shift_NEP(dataset):
     dataset.add_shifted_series(new_col='shifted_NEP')
-    
-
 
 def train(cfg, X_train, y_train, scaler):
     model_class = MODELS[cfg.model.model_name]
@@ -113,7 +111,9 @@ if __name__=="__main__":
     features = cfg.data.get("features", None)
     dataset = Dataset(data_path, scale_path, features)
     
-    dataset.trim(int(cfg.data.get("dataset_max", None)))
+    trim_to = cfg.data.get("dataset_max", None)
+    if trim_to is not None:
+        dataset.trim(int(trim_to))
 
     prepros_steps = cfg.data.get("preprocessing", [])
     print("Preprocessing")
@@ -121,7 +121,7 @@ if __name__=="__main__":
         print(f"running {preprocessing_step}")
         PREPROCESSING[preprocessing_step](dataset)
 
-
+    print("splitting data")
     split_on = cfg.data.get("split_on", "cell_num")
     test_split = [int(id) for id in cfg.data.test_split.split(',')]
     X_train, X_test, y_train, y_test, scaler = dataset.get_scaled_split(test_split, split_on)
@@ -134,6 +134,7 @@ if __name__=="__main__":
 
     if args.eval == True:
         model = load_model(cfg)
+        print("begin evaluating")
         y_hat = model.predict(X_test)
         evaluate(cfg, y_hat, y_test)
     if args.train == True:

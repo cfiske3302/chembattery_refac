@@ -71,4 +71,4 @@ def set_visible_GPU(cfg):
     all_gpus = tf.config.list_physical_devices('GPU')
     visible_GPUs = [all_gpus[i] for i in GPUs]
     tf.config.set_visible_devices(visible_GPUs, 'GPU')
-    print("USING GPUs", tf.config.get_visible_devices())
+    # print("USING GPUs", tf.config.get_visible_devices())

@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import os
 import pickle
-from typing import Iterable, Sequence, Tuple
+from typing import Iterable, Sequence, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -47,7 +47,7 @@ class Dataset:
         else:
             self.scaler = RobustScaler()
 
-    def trim(self, size: int | None = None, *, random_state: int | None = None):
+    def trim(self, size: Optional[Union[int, None]] = None, *, random_state: int | None = None):
         """
         Randomly subsample the dataset to the requested size.
 
