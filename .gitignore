@@ -1,0 +1,8 @@
+# Ignore archived code
+old_code/
+
+# Ignore experiment runs
+runs/
+
+# Ignore personal access token file
+pat.txt
