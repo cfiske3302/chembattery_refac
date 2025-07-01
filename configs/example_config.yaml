@@ -31,7 +31,7 @@ data:
     - "Energy-8"
     - "Power-8"
     # - "shifted_NEP"
-  split_on: "cell_num" #one of cell_num or cycle. What test_split refers to
+  split_on: "cell_num" #one of cell_num or cycle or c-rate. What test_split refers to
 
 trainer:
   epochs: 2 #ignored during eval

@@ -8,3 +8,5 @@ runs/
 pat.txt
 
 logs/
+
+pycache/

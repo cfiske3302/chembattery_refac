@@ -1,0 +1,9 @@
+See configs/example_config.yaml for capabilities
+
+stuff to do
+- add better documentation
+- add fine tuning stuff
+- generalize ensemble models better
+- make script to easily test several configs
+- make script to easily make configs
+- let ensembling train models in parallel on multiple GPUs
