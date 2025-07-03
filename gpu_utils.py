@@ -19,7 +19,7 @@ import subprocess
 from typing import Optional
 
 import tensorflow as tf
-from defaults import *
+from constants import *
 
 def pick_idle_gpu() -> Optional[int]:
     """

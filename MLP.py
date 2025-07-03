@@ -6,8 +6,7 @@ import os
 from Model import *
 from tqdm import tqdm
 from sklearn.preprocessing import RobustScaler
-from typing import Optional
-from typing import Optional, Union
+from typing import Optional, Union, List
 
 DEFAULT_HIDDEN_DIMS = 256
 DEFAULT_ACTIVATIONS = [tf.nn.relu, tf.nn.relu, tf.nn.leaky_relu]
@@ -18,14 +17,13 @@ DEFAULT_PINN_WEIGHT = 0.0  # Default weight for PINN loss term
 class MLP(Model):
     
 
-    def __init__(self, config, scaler: RobustScaler = None):
+    def __init__(self, model_config, trainer_config, scaler: RobustScaler = None):
         # print("in init")
-        super().__init__(config, scaler)
-        model_cfg = self.config.model
-        hidden_dims = model_cfg.get("hidden_dims", DEFAULT_HIDDEN_DIMS)
-        activations = model_cfg.get("activations", [tf.nn.relu, tf.nn.leaky_relu, tf.nn.leaky_relu])
-        input_dim = model_cfg.get("input_dim", DEFAULT_INPUT_DIMS)
-        output_dim = model_cfg.get("output_dim", DEFAULT_OUTPUT_DIMS)
+        super().__init__(model_config, trainer_config, scaler)
+        hidden_dims = self.model_config.get("hidden_dims", DEFAULT_HIDDEN_DIMS)
+        activations = self.model_config.get("activations", [tf.nn.relu, tf.nn.leaky_relu, tf.nn.leaky_relu])
+        input_dim = self.model_config.get("input_dim", DEFAULT_INPUT_DIMS)
+        output_dim = self.model_config.get("output_dim", DEFAULT_OUTPUT_DIMS)
 
         if type(hidden_dims) is int:
             hidden_dims = [5] + [hidden_dims for _ in range(2)] #in current implementation, first hidden layer is always 5, and the rest are the same size as hidden_dims. Mistake?
@@ -48,6 +46,35 @@ class MLP(Model):
     def AV_decrease_loss(self, av_prev, av_pred):
         """Physics-Informed Neural Network (PINN) loss term."""
         return tf.nn.relu(av_pred - av_prev)
+
+    def _apply_freeze(self):
+
+        for layer in self.model.layers:
+            layer.trainable = True
+
+        freeze_layers = self.trainer_config.get("freeze_layers", None)
+        print(f"freeze_layers: {freeze_layers}")
+        if not freeze_layers:
+            return
+        try:
+            freeze_layers = [int(x) for x in freeze_layers.split(",")]
+            by_index = True
+            by_name = False
+        except ValueError:
+            freeze_layers = [x.strip() for x in freeze_layers.split(",")]
+            by_index = False
+            by_name = True
+        print(f"Freezing layers: {freeze_layers} (by {'index' if by_index else 'name'})")
+        matched = 0
+        for idx, layer in enumerate(self.model.layers):
+            if (by_index and idx in freeze_layers) or \
+            (by_name and layer.name in freeze_layers):
+                layer.trainable = False
+                matched += 1
+        if matched == 0:
+            raise ValueError(f"No layers matched {freeze_layers}")
+        print("Frozen layers:", [l.name for l in self.model.layers if not l.trainable])
+        print("Unfrozen layers:", [l.name for l in self.model.layers if l.trainable])
 
 
     def train(self, X_data, y_data, verbose: bool = True, GPU: int = None):
@@ -82,14 +109,16 @@ class MLP(Model):
             self.scaler = self.scaler.fit(X_data)
             X_data = self.scaler.transform(X_data)
             print("WARNING: Scaler not set during initialization. Assuming unscaled data passed during training!")
-        
-        pinn_weight = self.config.trainer.get("pinn_weight", DEFAULT_PINN_WEIGHT)
+
+        self._apply_freeze()
+
+        pinn_weight = self.trainer_config.get("pinn_weight", DEFAULT_PINN_WEIGHT)
 
         log_dir = os.path.join("logs", "fit", datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
         file_writer = tf.summary.create_file_writer(log_dir)
 
-        batch_size = self.config.trainer.get("batch_size", DEFAULT_BATCH_SIZE)
-        num_epochs = self.config.trainer.get("epochs", DEFAULT_EPOCHS)
+        batch_size = self.trainer_config.get("batch_size", DEFAULT_BATCH_SIZE)
+        num_epochs = self.trainer_config.get("epochs", DEFAULT_EPOCHS)
 
         if pinn_weight == 0.0:
             # Standard Keras fit with TensorBoard logging

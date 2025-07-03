@@ -8,7 +8,7 @@ from Model import EnsembleModel
 from Dataset import Dataset
 from gpu_utils import set_visible_GPU
 from eval_utils import compute_metrics, print_metrics
-from defaults import *
+from constants import *
 
 
 
@@ -41,10 +41,12 @@ def shift_NEP(dataset):
 
 def train(cfg, X_train, y_train, scaler):
     model_class = MODELS[cfg.model.model_name]
+    trainer_config = cfg.trainer
+    model_config = cfg.model
     if cfg.model.get('num_models', 1) > 1 :
         weights = cfg.model.get('weights')
         print("initializing models")
-        models = [model_class(cfg, scaler=scaler) for _ in range(cfg.model.num_models)]
+        models = [model_class(model_config=model_config, trainer_config=trainer_config, scaler=scaler) for _ in range(cfg.model.num_models)]
         print("building ensemble model")
         model = EnsembleModel(models, weights)
         print("initialized model")
@@ -53,23 +55,36 @@ def train(cfg, X_train, y_train, scaler):
         print("begin training individual models")
         model.train(X_train, y_train, resample, proportion)
     else:
-        model = model_class(cfg, scaler=scaler)
+        model = model_class(model_config=model_config, trainer_config=trainer_config, scaler=scaler)
         model.train(X_train, y_train)
     save_path = os.path.join(cfg.trainer.save_dir, cfg.trainer.exp_name, "model")
     model.save_model_state(save_path)
 
-def load_model(cfg):
-    dir_path = os.path.join(cfg.trainer.save_dir, cfg.trainer.exp_name)
-    model_path = os.path.join(dir_path, "model")
-    model_config = OmegaConf.load(os.path.join(dir_path, "config.yaml"))
-    model_class = MODELS[model_config.model.model_name]
-    if cfg.model.get('num_models', 1) > 1 :
-        models = [model_class(model_config, scaler=scaler) for _ in range(cfg.model.num_models)]
-        model = EnsembleModel(models)
-        model.load_model_state(model_path)
+def fine_tune(cfg, X_train, y_train):
+    model = load_model(cfg, eval=False)
+    print("begin fine-tuning")
+    resample = cfg.trainer.get("resample_alg", DEFAULT_RESAMPLEING_ALG)
+    proportion = cfg.trainer.get("proportion", DEFAULT_RESAMPLING_PROPORTION)
+    model.train(X_train, y_train, resample, proportion)
+    save_path = os.path.join(cfg.trainer.save_dir, cfg.trainer.exp_name, "model")
+    model.save_model_state(save_path)
+
+def load_model(cfg, eval=True):
+    if eval:
+        dir_path = os.path.join(cfg.trainer.save_dir, cfg.trainer.exp_name)
     else:
-        model = model_class(cfg)
-        model.load_model_state(model_path)
+        dir_path = cfg.trainer.get("starting_ckpt_dir", None)
+    model_path = os.path.join(dir_path, "model")
+    model_config = OmegaConf.load(os.path.join(dir_path, "config.yaml")).model
+    trainer_config = cfg.trainer
+    model_class = MODELS[model_config.model_name]
+    if model_config.get('num_models', 1) > 1 :
+        models = [model_class(model_config, trainer_config) for _ in range(model_config.num_models)]
+        model = EnsembleModel(models)
+    else:
+        model = model_class(model_config, trainer_config)
+
+    model.load_model_state(model_path)
     return model
 
 def evaluate(cfg, y_hat, y_test):
@@ -102,7 +117,7 @@ if __name__=="__main__":
     parser = get_parser()
     args = parser.parse_args()
 
-    # assert args.train + args.eval == 1, "Exactly one of train, eval, or eval_base_learners should be picked! You have both or are missing both."
+    assert args.train + args.eval >= 1, "must select at least one of train or eval should be picked! You have both or are missing both."
 
     cfg = OmegaConf.load(args.config)
 
@@ -133,8 +148,11 @@ if __name__=="__main__":
     set_visible_GPU(cfg)
 
     if args.train == True:
-        print("begin training")
-        train(cfg, X_train, y_train, scaler)
+        if cfg.trainer.get("starting_ckpt_dir", False):
+            fine_tune(cfg, X_train, y_train)
+        else:
+            print("begin training")
+            train(cfg, X_train, y_train, scaler)
     
     if args.eval == True:
         model = load_model(cfg)

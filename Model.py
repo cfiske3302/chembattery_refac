@@ -1,14 +1,12 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 import os
 import pickle
 import numpy as np
-from typing import List, Optional, Iterable, Union
+from typing import List, Iterable
 import tensorflow as tf
 import multiprocessing as mp
 from sklearn.preprocessing import RobustScaler
-from defaults import *
-from gpu_utils import pick_idle_gpu
+from constants import *
 
 OPTIMIZERS = {
     "Adam": tf.keras.optimizers.legacy.Adam,
@@ -27,24 +25,25 @@ OPTIMIZERS = {
 #     momentum: float=0.0
 
 class Model(ABC):
-    def __init__(self, config, scaler: RobustScaler = None): 
-        self.config = config
+    def __init__(self, model_config, trainer_config, scaler: RobustScaler = None): 
+        self.model_config = model_config
+        self.trainer_config = trainer_config
         self.model = None
         self._create_optimizer()
         self.scaler = scaler
 
     def _create_optimizer(self):
-        opt = self.config.trainer.get("optimizer", DEFAULT_OPTIMIZER)
+        opt = self.trainer_config.get("optimizer", DEFAULT_OPTIMIZER)
         if opt=="adam":
             self.optimizer = tf.keras.optimizers.legacy.Adam(
-                learning_rate=self.config.trainer.learning_rate,
-                beta_1=self.config.trainer.get("beta_1", DEFAULT_BETA_1),
-                beta_2=self.config.trainer.get("beta_2", DEFAULT_BETA_2)
+                learning_rate=self.trainer_config.learning_rate,
+                beta_1=self.trainer_config.get("beta_1", DEFAULT_BETA_1),
+                beta_2=self.trainer_config.get("beta_2", DEFAULT_BETA_2)
             )
         elif opt=="SGD":
             self.optimizer = tf.keras.optimizers.legacy.SGD(
-                learning_rate=self.config.trainer.get("learning_rate", DEFAULT_LEARNING_RATE),
-                momentum=self.config.trainer.get("momentum", DEFAULT_MOMENTUM)
+                learning_rate=self.trainer_config.get("learning_rate", DEFAULT_LEARNING_RATE),
+                momentum=self.trainer_config.get("momentum", DEFAULT_MOMENTUM)
             )
         elif opt is None:
             self.optimizer = None
@@ -137,7 +136,6 @@ class EnsembleModel:
             self.weights = [1.0 / len(models)] * len(models)
         else:
             self.weights = weights
-
     def subsample_data(self, X, y, proportion):
         rows = np.random.choice(X.shape[0], size = int(X.shape[0]*proportion)) # Randomly choose 70% of data
         return X[rows,:], y[rows]
@@ -214,7 +212,7 @@ class EnsembleModel:
 
         if available_gpus is None or len(available_gpus) == 1:
             # Only one GPU, train sequentially on that GPU
-            print(f"GPU bassed to ensemble is {available_gpus}")
+            print(f"GPU passed to ensemble is {available_gpus}")
             gpu_idx = None if available_gpus is None else available_gpus[0]
             for model in self.models:
                 model.train(*resample(X_data, y_data), GPU=gpu_idx, verbose=True)     
@@ -239,7 +237,7 @@ class EnsembleModel:
             #     p.join()
 
             # print("All models have been trained.")       
-
+    
     def predict(self, X_data, GPU=None):
         predictions = [model.predict(X_data, GPU) for model in self.models]
         weighted_preds = sum(w * p for w, p in zip(self.weights, predictions))
@@ -305,4 +303,4 @@ class EnsembleModel:
 
         for idx, model in enumerate(self.models):
             model_path = os.path.join(models_dir, f"model_{idx}")
-            model.load_model_state(model_path)
+            model.load_model_state(model_path)    

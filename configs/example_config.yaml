@@ -36,7 +36,7 @@ data:
 trainer:
   epochs: 2 #ignored during eval
   save_dir: "./runs/" #experiment dir
-  exp_name: "train_pinn_1e6" #name of dir where we will save this experiment
+  exp_name: "train_pinn_1e6" #name of dir where we will save this experiment or the results
   batch_size: 1024
   optimizer: "adam" #what optimizer to use. adam or SGD. default to adam
   learning_rate: 0.001
@@ -49,3 +49,5 @@ trainer:
   resample_alg: "bootstrap" #one of "bootstrap" or "subsamle". Selects how to resample data during ensembling
   proportion: 0.7 #proportion of data to resample when ensemling. default to 0.7
   GPUs: 0 #GPU number to run experiments on. Defaults to a GPU with most available memory. Allows you to run multiple experiments at the same time. TODO: allow ensemble methods to train many things in parallel
+  starting_ckpt_dir: "" #When passed during training, will fine-tune model in this experiment directory (starting_chkpt_dir/model) and save results to save_dir/exp_name. If passed during eval, will load model from 
+  freeze_layers: 0,1 #layers to freeze during fine-tuning.
