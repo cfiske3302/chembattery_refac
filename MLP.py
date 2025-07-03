@@ -17,8 +17,12 @@ DEFAULT_PINN_WEIGHT = 0.0  # Default weight for PINN loss term
 class MLP(Model):
     
 
-    def __init__(self, model_config, trainer_config, scaler: RobustScaler = None):
+    def __init__(self, model_config=None, trainer_config=None, scaler: RobustScaler = None):
         # print("in init")
+        if model_config is None:
+            model_config = {}
+        if trainer_config is None:
+            trainer_config = {}
         super().__init__(model_config, trainer_config, scaler)
         hidden_dims = self.model_config.get("hidden_dims", DEFAULT_HIDDEN_DIMS)
         activations = self.model_config.get("activations", [tf.nn.relu, tf.nn.leaky_relu, tf.nn.leaky_relu])

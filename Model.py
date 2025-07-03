@@ -25,18 +25,23 @@ OPTIMIZERS = {
 #     momentum: float=0.0
 
 class Model(ABC):
-    def __init__(self, model_config, trainer_config, scaler: RobustScaler = None): 
+    def __init__(self, model_config=None, trainer_config=None, scaler: RobustScaler = None): 
         self.model_config = model_config
         self.trainer_config = trainer_config
         self.model = None
-        self._create_optimizer()
+
+        if trainer_config is None:
+            self.optimizer = None
+        else:
+            self._create_optimizer()   
+        
         self.scaler = scaler
 
     def _create_optimizer(self):
         opt = self.trainer_config.get("optimizer", DEFAULT_OPTIMIZER)
         if opt=="adam":
             self.optimizer = tf.keras.optimizers.legacy.Adam(
-                learning_rate=self.trainer_config.learning_rate,
+                learning_rate=self.trainer_config.get("learning_rate", DEFAULT_LEARNING_RATE),
                 beta_1=self.trainer_config.get("beta_1", DEFAULT_BETA_1),
                 beta_2=self.trainer_config.get("beta_2", DEFAULT_BETA_2)
             )
@@ -92,7 +97,7 @@ class Model(ABC):
         state = self.__dict__.copy()
         state.pop("model", None)
         state.pop("optimizer", None)
-        print(state)
+        # print(state)
         with open(os.path.join(path, "instance.pkl"), "wb") as f:
             pickle.dump(state, f)
         # Save optimizer state if present

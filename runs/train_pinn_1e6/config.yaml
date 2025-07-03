@@ -3,7 +3,7 @@ model:
   input_dim: 6
   output_dim: 1
   hidden_dim: 256
-  num_models: 5
+  num_models: 1
 data:
   date_str: '2024-08-21'
   data_dir: ../Features/

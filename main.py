@@ -75,16 +75,16 @@ def load_model(cfg, eval=True):
     else:
         dir_path = cfg.trainer.get("starting_ckpt_dir", None)
     model_path = os.path.join(dir_path, "model")
-    model_config = OmegaConf.load(os.path.join(dir_path, "config.yaml")).model
     trainer_config = cfg.trainer
-    model_class = MODELS[model_config.model_name]
-    if model_config.get('num_models', 1) > 1 :
-        models = [model_class(model_config, trainer_config) for _ in range(model_config.num_models)]
+    model_class = MODELS[cfg.model.model_name]
+    if cfg.model.get('num_models', 1) > 1 :
+        models = [model_class() for _ in range(cfg.model.num_models)]
         model = EnsembleModel(models)
     else:
-        model = model_class(model_config, trainer_config)
+        model = model_class()
 
     model.load_model_state(model_path)
+    model.trainer_config = trainer_config
     return model
 
 def evaluate(cfg, y_hat, y_test):
