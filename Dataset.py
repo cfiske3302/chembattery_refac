@@ -172,5 +172,5 @@ class Dataset:
     ):
         x_tr, y_tr, x_te, y_te = self.split(test_ids, by)
         x_tr = self.scale(x_tr, fit=True)
-        x_te = self.scale(x_te, fit=False)
+        # x_te = self.scale(x_te, fit=False)
         return x_tr.values, x_te.values, np.array(y_tr), np.array(y_te), self.scaler

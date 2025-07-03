@@ -23,7 +23,7 @@ data:
 trainer:
   epochs: 70
   save_dir: "./runs/"
-  exp_name: "reproduced_results_1"
+  exp_name: "reproduced_results_3"
   learning_rate: 0.001
   batch_size: 256
   pinn_weight: 0

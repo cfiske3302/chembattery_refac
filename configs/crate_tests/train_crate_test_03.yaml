@@ -10,8 +10,8 @@ model:
 data:
   date_str: 2024-08-21
   data_dir: "../Features/"
-  test_split: 3,8,15,19,30,31,34,51
-  split_on: "cell_num"
+  test_split: 0.33,
+  split_on: "c-rate"
   scaler_date: 2024-08-21
   features:
     - "Energy"
@@ -22,9 +22,10 @@ data:
 
 trainer:
   epochs: 70
-  save_dir: "./runs/"
-  exp_name: "reproduced_results_1"
+  save_dir: "./runs/crate"
+  exp_name: "c_rate_test_03"
   learning_rate: 0.001
   batch_size: 256
   pinn_weight: 0
-  optimizer: "SGD"
+  optimizer: 'SGD'
+  momentum: 0.001

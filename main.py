@@ -102,7 +102,7 @@ if __name__=="__main__":
     parser = get_parser()
     args = parser.parse_args()
 
-    assert args.train + args.eval == 1, "Exactly one of train, eval, or eval_base_learners should be picked! You have both or are missing both."
+    # assert args.train + args.eval == 1, "Exactly one of train, eval, or eval_base_learners should be picked! You have both or are missing both."
 
     cfg = OmegaConf.load(args.config)
 
@@ -132,13 +132,14 @@ if __name__=="__main__":
 
     set_visible_GPU(cfg)
 
+    if args.train == True:
+        print("begin training")
+        train(cfg, X_train, y_train, scaler)
+    
     if args.eval == True:
         model = load_model(cfg)
         print("begin evaluating")
         y_hat = model.predict(X_test)
         evaluate(cfg, y_hat, y_test)
-    if args.train == True:
-        print("begin training")
-        train(cfg, X_train, y_train, scaler)
 
     

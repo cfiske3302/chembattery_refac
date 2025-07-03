@@ -138,13 +138,10 @@ class EnsembleModel:
         else:
             self.weights = weights
 
-    def subsample_data(self, X_data, y_data, proportion):
-        # Subsample the data based on the given proportion
-        if not (0 < proportion < 1):
-            raise ValueError("Proportion must be between 0 and 1.")
-        num_samples = int(len(X_data) * proportion)
-        return X_data[:num_samples], y_data[:num_samples]
-    
+    def subsample_data(self, X, y, proportion):
+        rows = np.random.choice(X.shape[0], size = int(X.shape[0]*proportion)) # Randomly choose 70% of data
+        return X[rows,:], y[rows]
+
     def bootstrap_data(self, X_data, y_data, proportion):
         if not (0 < proportion < 1):
             raise ValueError("Proportion must be between 0 and 1.")
