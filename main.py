@@ -113,6 +113,45 @@ PREPROCESSING = {
 }
 
 
+def main_train_single(cfg):
+    """
+    Train a single model given a configuration.
+    This function is used by the ensemble launcher.
+    """
+    data_path = os.path.join(cfg.data.data_dir, cfg.data.date_str)
+    scale_path = os.path.join(cfg.data.data_dir, cfg.data.get("scaler_date", '⚖️'))
+    features = cfg.data.get("features", None)
+    dataset = Dataset(data_path, scale_path, features)
+    
+    trim_to = cfg.data.get("dataset_max", None)
+    if trim_to is not None:
+        dataset.trim(int(trim_to))
+
+    prepros_steps = cfg.data.get("preprocessing", [])
+    print("Preprocessing")
+    for preprocessing_step in prepros_steps:
+        print(f"running {preprocessing_step}")
+        PREPROCESSING[preprocessing_step](dataset)
+
+    print("splitting data")
+    split_on = cfg.data.get("split_on", "cell_num")
+    test_split = [str(id) for id in cfg.data.test_split.split(',')]
+    X_train, X_test, y_train, y_test, scaler = dataset.get_scaled_split(test_split, split_on)
+
+    save_path = os.path.join(cfg.trainer.save_dir, cfg.trainer.exp_name)
+    os.makedirs(save_path, exist_ok=True)
+    OmegaConf.save(cfg, os.path.join(save_path, "config.yaml"))
+
+    # Note: GPU selection is handled by the ensemble launcher via CUDA_VISIBLE_DEVICES
+    # so we don't call set_visible_GPU here
+
+    if cfg.trainer.get("starting_ckpt_dir", False):
+        fine_tune(cfg, X_train, y_train)
+    else:
+        print("begin training")
+        train(cfg, X_train, y_train, scaler)
+
+
 if __name__=="__main__":
     parser = get_parser()
     args = parser.parse_args()
@@ -122,7 +161,7 @@ if __name__=="__main__":
     cfg = OmegaConf.load(args.config)
 
     data_path = os.path.join(cfg.data.data_dir, cfg.data.date_str)
-    scale_path = os.path.join(cfg.data.data_dir, cfg.data.get("scaler_date", '⚖️'))
+    scale_path = os.path.join(cfg.data.data_dir, cfg.data.get("scaler_date", '⚖️')) #scale_path should error if used when not set
     features = cfg.data.get("features", None)
     dataset = Dataset(data_path, scale_path, features)
     
@@ -159,5 +198,3 @@ if __name__=="__main__":
         print("begin evaluating")
         y_hat = model.predict(X_test)
         evaluate(cfg, y_hat, y_test)
-
-    

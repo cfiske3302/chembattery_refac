@@ -58,6 +58,78 @@ def pick_idle_gpu() -> Optional[int]:
 
     return best_idx
 
+def get_gpu_free_mem() -> list[int]:
+    """
+    Return a list with the free memory (in MiB) for each visible GPU.
+
+    Uses `nvidia-smi --query-gpu=memory.free` so it works even when NVML
+    Python bindings (`pynvml`) are not installed.
+    """
+    try:
+        output = subprocess.check_output(
+            [
+                "nvidia-smi",
+                "--query-gpu=memory.free",
+                "--format=csv,noheader,nounits",
+            ],
+            encoding="utf-8",
+            stderr=subprocess.DEVNULL,
+        )
+        return [int(x) for x in output.strip().splitlines()]
+    except Exception:
+        # If the command fails (e.g. system without NVIDIA GPU),
+        # return an empty list so callers can handle gracefully.
+        return []
+
+def estimate_peak_mb(model_cfg: dict, trainer_cfg: dict | None = None) -> int:
+    """
+    Very rough upper-bound of model footprint on the GPU *including one batch*.
+
+    Parameters
+    ----------
+    model_cfg : dict
+        The "model" sub-section of the Hydra / OmegaConf YAML.
+        Expected keys (with defaults):
+            input_dim        (int, default 5)
+            hidden_dims      (int | list[int], default 256 or [5,256,256])
+            output_dim       (int, default 1)
+    trainer_cfg : dict | None
+        If provided, batch_size is taken from here, otherwise DEFAULT_BATCH_SIZE.
+    """
+    # ---------------- Weights + optimiser state ----------------
+    input_dim = model_cfg.get("input_dim", 5)
+    output_dim = model_cfg.get("output_dim", 1)
+    hidden_dims = model_cfg.get("hidden_dims", 256)
+    if isinstance(hidden_dims, int):
+        hidden_dims = [5, hidden_dims, hidden_dims]
+    layer_dims = [input_dim] + hidden_dims + [output_dim]
+
+    # param count for fully-connected network  Σ_in×out + biases
+    n_params = sum(a * b for a, b in zip(layer_dims[:-1], layer_dims[1:])) + sum(layer_dims[1:])
+    # 4×: weights fp32 + grads + optimiser slots (Adam has m & v)
+    weights_mb = 4 * n_params * 4 / 1_000_000  # bytes→MiB
+
+    # ---------------- Activations (one batch) ------------------
+    batch_size = (trainer_cfg or {}).get("batch_size", DEFAULT_BATCH_SIZE)
+    dtype_bytes = 4  # assume fp32 activations
+    max_width = max(hidden_dims)
+    activ_mb = batch_size * max_width * dtype_bytes * 2 * 1.25 / 1_000_000
+    #       ^-- fwd + back-prop  ×  safety factor
+
+    return int(weights_mb + activ_mb + 32)  # +32 MiB cushion
+
+def pick_gpu(memory_needed_mb: int) -> int | None:
+    """
+    Return the index of a GPU with at least *memory_needed_mb* free.
+    If none exists, return None.
+    """
+    visible_gpus = [gpu.name.split(':')[-1] for gpu in tf.config.list_physical_devices('GPU')]
+    free_list = get_gpu_free_mem()
+    for idx, free_mb in enumerate(free_list):
+        if free_mb >= memory_needed_mb and str(idx) in visible_gpus:
+            return idx
+    return None
+
 def set_visible_GPU(cfg):
     GPUs = cfg.trainer.get("GPUs", DEFAULT_GPU)
     if GPUs == "auto":

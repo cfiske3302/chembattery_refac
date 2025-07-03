@@ -8,6 +8,20 @@ from tqdm import tqdm
 from sklearn.preprocessing import RobustScaler
 from typing import Optional, Union, List
 
+# Enable GPU memory growth to allow multiple models on the same GPU
+def enable_gpu_memory_growth():
+    """Enable GPU memory growth to prevent pre-allocation of entire GPU memory."""
+    gpus = tf.config.list_physical_devices('GPU')
+    for gpu in gpus:
+        try:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        except RuntimeError:
+            # Memory growth must be set before GPUs have been initialized
+            pass
+
+# Call this at module import time
+enable_gpu_memory_growth()
+
 DEFAULT_HIDDEN_DIMS = 256
 DEFAULT_ACTIVATIONS = [tf.nn.relu, tf.nn.relu, tf.nn.leaky_relu]
 DEFAULT_INPUT_DIMS = 5
@@ -124,20 +138,25 @@ class MLP(Model):
         batch_size = self.trainer_config.get("batch_size", DEFAULT_BATCH_SIZE)
         num_epochs = self.trainer_config.get("epochs", DEFAULT_EPOCHS)
 
+        # Create tf.data.Dataset for both MSE and PINN training paths
+        dataset = (tf.data.Dataset.from_tensor_slices((X_data, y_data))
+                   .shuffle(buffer_size=25000)
+                   .batch(batch_size, drop_remainder=False)
+                   .prefetch(tf.data.AUTOTUNE))
+
         if pinn_weight == 0.0:
-            # Standard Keras fit with TensorBoard logging
-            tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, update_freq=2000)
+            # MSE-only training using tf.data.Dataset
             self.model.compile(
                 loss="mse",
                 optimizer=self.optimizer,
                 metrics=["mse", "mape"]
             )
+            
+            # Use tf.data.Dataset with model.fit for consistency
+            tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, update_freq=2000)
             self.model.fit(
-                X_data,
-                y_data,
+                dataset,
                 epochs=num_epochs,
-                batch_size=batch_size,
-                shuffle=True,
                 verbose=1,
                 callbacks=[tensorboard_callback]
             )
@@ -149,9 +168,6 @@ class MLP(Model):
                 raise ValueError("Scaler must be provided for PINN loss training.")
 
             mse_loss = tf.keras.losses.MeanSquaredError()
-
-            dataset = tf.data.Dataset.from_tensor_slices((X_data, y_data))
-            dataset = dataset.shuffle(buffer_size=25000).batch(batch_size)
 
             step = 0
             for epoch in range(num_epochs):

@@ -7,6 +7,8 @@ import tensorflow as tf
 import multiprocessing as mp
 from sklearn.preprocessing import RobustScaler
 from constants import *
+from gpu_utils import get_gpu_free_mem, pick_gpu, estimate_peak_mb
+import time
 
 OPTIMIZERS = {
     "Adam": tf.keras.optimizers.legacy.Adam,
@@ -222,26 +224,83 @@ class EnsembleModel:
             for model in self.models:
                 model.train(*resample(X_data, y_data), GPU=gpu_idx, verbose=True)     
         elif len(available_gpus) > 1:
-            # TODO
-            raise NotImplementedError("Parallel training across multiple GPUs is not yet implemented.")
-            # mp.set_start_method("spawn")  # safer on Linux and required on Windows/Mac
-
-            # # Create a queue with all the models to train
-            # task_queue = mp.Queue()
-            # for model in self.models:
-            #     task_queue.put(model)
-
-            # processes = []
-            # for gpu_id in available_gpus:
-            #     p = mp.Process(target=worker, args=(task_queue, X_data, y_data, gpu_id))
-            #     p.start()
-            #     processes.append(p)
-
-            # # Wait for all processes to finish
-            # for p in processes:
-            #     p.join()
-
-            # print("All models have been trained.")       
+            
+            # Enable memory growth for multiprocessing
+            gpus = tf.config.list_physical_devices('GPU')
+            for gpu in gpus:
+                try:
+                    tf.config.experimental.set_memory_growth(gpu, True)
+                except RuntimeError:
+                    pass
+            
+            # Estimate memory requirements for each model
+            # We'll use a rough estimate based on typical MLP sizes
+            estimated_mb_per_model = 128  # Conservative estimate for small MLPs
+            
+            print(f"Training {len(self.models)} models across {len(available_gpus)} GPUs")
+            print(f"Estimated memory per model: {estimated_mb_per_model} MB")
+            
+            # Queue of models to train
+            pending_models = list(enumerate(self.models))
+            active_processes = []
+            
+            def train_single_model_worker(model_idx, model, X_data, y_data, gpu_idx):
+                """Worker function to train a single model on a specific GPU."""
+                import os
+                os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_idx)
+                
+                # Enable memory growth in worker process
+                import tensorflow as tf
+                gpus = tf.config.list_physical_devices('GPU')
+                for gpu in gpus:
+                    try:
+                        tf.config.experimental.set_memory_growth(gpu, True)
+                    except RuntimeError:
+                        pass
+                
+                print(f"Process {os.getpid()}: Training model {model_idx} on GPU {gpu_idx}")
+                try:
+                    model.train(*resample(X_data, y_data), verbose=True)
+                    print(f"Process {os.getpid()}: Completed model {model_idx}")
+                except Exception as e:
+                    print(f"Process {os.getpid()}: Error training model {model_idx}: {e}")
+                    raise
+            
+            mp.set_start_method("spawn", force=True)
+            
+            while pending_models or active_processes:
+                # Clean up finished processes
+                active_processes = [p for p in active_processes if p.is_alive()]
+                
+                # Try to launch new models
+                models_to_remove = []
+                for i, (model_idx, model) in enumerate(pending_models):
+                    gpu_idx = pick_gpu(estimated_mb_per_model)
+                    if gpu_idx is not None and gpu_idx in available_gpus:
+                        print(f"Launching model {model_idx} on GPU {gpu_idx}")
+                        process = mp.Process(
+                            target=train_single_model_worker,
+                            args=(model_idx, model, X_data, y_data, gpu_idx)
+                        )
+                        process.start()
+                        active_processes.append(process)
+                        models_to_remove.append(i)
+                    else:
+                        free_mem = get_gpu_free_mem()
+                        print(f"Waiting for GPU with {estimated_mb_per_model} MB free. Current free memory: {free_mem}")
+                
+                # Remove launched models from pending queue
+                for i in reversed(models_to_remove):
+                    pending_models.pop(i)
+                
+                if pending_models:
+                    print(f"Waiting 10 seconds... {len(pending_models)} models pending, {len(active_processes)} active")
+                    time.sleep(10)
+                elif active_processes:
+                    print(f"All models launched. Waiting for {len(active_processes)} processes to complete...")
+                    time.sleep(5)
+            
+            print("All ensemble models have been trained.")
     
     def predict(self, X_data, GPU=None):
         predictions = [model.predict(X_data, GPU) for model in self.models]
@@ -308,4 +367,4 @@ class EnsembleModel:
 
         for idx, model in enumerate(self.models):
             model_path = os.path.join(models_dir, f"model_{idx}")
-            model.load_model_state(model_path)    
+            model.load_model_state(model_path)
