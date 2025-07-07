@@ -1,3 +1,4 @@
+#Not used. Dependancy issues with constants
 from abc import ABC, abstractmethod
 import os
 import pickle

@@ -4,7 +4,7 @@ model:
   input_dim: 5
   output_dim: 1
   hidden_dim: 256
-  num_models: 5
+  num_models: 1
 
 
 data:
@@ -22,8 +22,8 @@ data:
 
 trainer:
   epochs: 70
-  save_dir: "./runs/"
-  exp_name: "reproduced_results"
+  save_dir: "./runs/finetune_test"
+  exp_name: "reproduced_single_model_for_finetune"
   learning_rate: 0.001
   batch_size: 256
   pinn_weight: 0

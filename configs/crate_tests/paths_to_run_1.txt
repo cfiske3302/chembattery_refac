@@ -1,0 +1,5 @@
+/usr/project/chembattery/chembattery_refac/configs/crate_tests/train_crate_test_08.yaml
+/usr/project/chembattery/chembattery_refac/configs/crate_tests/train_crate_test_10.yaml
+/usr/project/chembattery/chembattery_refac/configs/crate_tests/train_crate_test_08_pinn.yaml
+/usr/project/chembattery/chembattery_refac/configs/crate_tests/train_crate_test_10_pinn.yaml
+/usr/project/chembattery/chembattery_refac/configs/crate_tests/train_crate_test_03_pinn.yaml
