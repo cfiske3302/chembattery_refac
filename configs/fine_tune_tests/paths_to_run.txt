@@ -1,0 +1,9 @@
+#/usr/project/chembattery/chembattery_refac/configs/fine_tune_tests/train_lfp_reproduce_single.yaml
+/usr/project/chembattery/chembattery_refac/configs/fine_tune_tests/train_lfp_reproduce_single_finetune.yaml
+/usr/project/chembattery/chembattery_refac/configs/fine_tune_tests/train_lfp_reproduce_single_finetune_thaw.yaml
+/usr/project/chembattery/chembattery_refac/configs/fine_tune_tests/train_lfp_reproduce_100.yaml
+
+/usr/project/chembattery/chembattery_refac/configs/fine_tune_tests_ensemble/train_lfp_reproduce_single.yaml
+/usr/project/chembattery/chembattery_refac/configs/fine_tune_tests_ensemble/train_lfp_reproduce_single_finetune.yaml
+/usr/project/chembattery/chembattery_refac/configs/fine_tune_tests_ensemble/train_lfp_reproduce_single_finetune_thaw.yaml
+/usr/project/chembattery/chembattery_refac/configs/fine_tune_tests_ensemble/train_lfp_reproduce_100.yaml

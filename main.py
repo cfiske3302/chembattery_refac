@@ -24,11 +24,6 @@ def get_parser():
         action="store_true"
     )
     parser.add_argument(
-        "--ckpt",
-        type=str,
-        required=False
-    )
-    parser.add_argument(
         "--eval",
         action="store_true",
     )
@@ -61,15 +56,19 @@ def train(cfg, X_train, y_train, scaler):
     model.save_model_state(save_path)
 
 def fine_tune(cfg, X_train, y_train):
-    model = load_model(cfg, eval=False)
+    model = load_model(cfg, eval=False, skip_optimizer=True) #maybe eventually update so optimizer is properly loaded with old learned weights
+    model.reset_train_config(cfg.trainer)
     print("begin fine-tuning")
-    resample = cfg.trainer.get("resample_alg", DEFAULT_RESAMPLEING_ALG)
-    proportion = cfg.trainer.get("proportion", DEFAULT_RESAMPLING_PROPORTION)
-    model.train(X_train, y_train, resample, proportion)
+    if model.model_config.get('num_models', 1) > 1:
+        resample = cfg.trainer.get("resample_alg", DEFAULT_RESAMPLEING_ALG)
+        proportion = cfg.trainer.get("proportion", DEFAULT_RESAMPLING_PROPORTION)
+        model.train(X_train, y_train, resample, proportion)
+    else:
+        model.train(X_train, y_train)
     save_path = os.path.join(cfg.trainer.save_dir, cfg.trainer.exp_name, "model")
     model.save_model_state(save_path)
 
-def load_model(cfg, eval=True):
+def load_model(cfg, eval=True, skip_optimizer=False):
     if eval:
         dir_path = os.path.join(cfg.trainer.save_dir, cfg.trainer.exp_name)
     else:
@@ -83,7 +82,7 @@ def load_model(cfg, eval=True):
     else:
         model = model_class()
 
-    model.load_model_state(model_path)
+    model.load_model_state(model_path, skip_optimizer=skip_optimizer)
     model.trainer_config = trainer_config
     return model
 

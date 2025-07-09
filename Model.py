@@ -56,6 +56,9 @@ class Model(ABC):
         else:
             raise ValueError(f"Unrecognized optimizer {opt}")
 
+    def reset_train_config(self, trainer_config):
+        self.trainer_config = trainer_config
+        self._create_optimizer()
 
     @abstractmethod
     def train(self, X_data, y_data, verbose=False, GPU=None):
@@ -106,7 +109,7 @@ class Model(ABC):
             with open(os.path.join(path, "optimizer.pkl"), "wb") as f:
                 pickle.dump(optimizer_weights, f)
 
-    def load_model_state(self, path: str):
+    def load_model_state(self, path: str, skip_optimizer: bool = False):
         # Load Keras model
         self.model = tf.keras.models.load_model(os.path.join(path, "model"))
         # Load the rest of the instance
@@ -116,7 +119,7 @@ class Model(ABC):
         self._create_optimizer()
         # Load optimizer state if present
         optimizer_path = os.path.join(path, "optimizer.pkl")
-        if self.optimizer is not None and os.path.exists(optimizer_path):
+        if self.optimizer is not None and os.path.exists(optimizer_path) and not skip_optimizer:
             with open(optimizer_path, "rb") as f:
                 optimizer_weights = pickle.load(f)
 
@@ -141,9 +144,18 @@ class EnsembleModel:
             self.weights = [1.0 / len(models)] * len(models)
         else:
             self.weights = weights
+
+            
     def subsample_data(self, X, y, proportion):
         rows = np.random.choice(X.shape[0], size = int(X.shape[0]*proportion)) # Randomly choose 70% of data
         return X[rows,:], y[rows]
+
+    def reset_train_config( self, trainer_config):
+        """
+        Reset the training configuration for all models in the ensemble.
+        """
+        for model in self.models:
+            model.reset_train_config(trainer_config)
 
     def bootstrap_data(self, X_data, y_data, proportion):
         if not (0 < proportion < 1):
@@ -277,7 +289,7 @@ class EnsembleModel:
             model_path = os.path.join(models_dir, f"model_{idx}")
             model.save_model_state(model_path)
 
-    def load_model_state(self, path: str):
+    def load_model_state(self, path: str, skip_optimizer: bool=False):
         """
         Load the ensemble state and all constituent models from *path*.
         Note: self.models must already contain instantiated Model objects
@@ -308,4 +320,4 @@ class EnsembleModel:
 
         for idx, model in enumerate(self.models):
             model_path = os.path.join(models_dir, f"model_{idx}")
-            model.load_model_state(model_path)    
+            model.load_model_state(model_path, skip_optimizer=skip_optimizer)    

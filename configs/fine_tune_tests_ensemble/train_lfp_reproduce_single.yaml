@@ -1,0 +1,26 @@
+model:
+  model_name: MLP
+  input_dim: 5
+  output_dim: 1
+  hidden_dim: 256
+  num_models: 5
+data:
+  date_str: '2024-08-21'
+  data_dir: ../Features/
+  test_split: 3,8,15,19,30,31,34,51
+  split_on: cell_num
+  scaler_date: '2024-08-21'
+  features:
+  - Energy
+  - Capacity
+  - Voltage-8
+  - Energy-8
+  - Power-8
+trainer:
+  epochs: 14.0
+  save_dir: ./runs/finetune_tests_ensemble
+  exp_name: reproduced_single_model_for_finetune
+  learning_rate: 0.001
+  batch_size: 256
+  pinn_weight: 0
+  optimizer: SGD

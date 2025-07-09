@@ -15,8 +15,6 @@ DEFAULT_OUTPUT_DIMS = 1
 DEFAULT_PINN_WEIGHT = 0.0  # Default weight for PINN loss term
 
 class MLP(Model):
-    
-
     def __init__(self, model_config=None, trainer_config=None, scaler: RobustScaler = None):
         # print("in init")
         if model_config is None:
@@ -80,6 +78,7 @@ class MLP(Model):
         print("Frozen layers:", [l.name for l in self.model.layers if not l.trainable])
         print("Unfrozen layers:", [l.name for l in self.model.layers if l.trainable])
 
+    
 
     def train(self, X_data, y_data, verbose: bool = True, GPU: int = None):
         """

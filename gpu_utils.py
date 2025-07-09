@@ -66,9 +66,11 @@ def set_visible_GPU(cfg):
         GPUs = [GPUs]
     else:
         GPUs = [int(gpu) for gpu in GPUs.split(',')]
-    
+        
     print("using GPUs: ", GPUs)
     all_gpus = tf.config.list_physical_devices('GPU')
     visible_GPUs = [all_gpus[i] for i in GPUs]
+    for gpu in visible_GPUs: #this is new and may cause issues
+        tf.config.experimental.set_memory_growth(gpu, True)
     tf.config.set_visible_devices(visible_GPUs, 'GPU')
     # print("USING GPUs", tf.config.get_visible_devices())

@@ -23,6 +23,22 @@ Takes one argument: the path to a text file containing a list of paths to config
 ./run_script_list.sh ./configs/crate_tests/paths_to_run.txt
 ```
 
+Use `run_script_list_parallel.sh` to run several config files at the same time. Currently, the output will not look pretty
+since all processes will print to the same console. (TODO is to fix)
+Takes one argument: the path to a text file containing a list of paths to config files. For example:
+
+```bash
+./run_script_list_parallel.sh ./configs/crate_tests/paths_to_run.txt
+```
+
+Use `run_script_list_parallel_limited.sh` to run several config files at the same time, with a max number at the same time. Currently, the output will not look pretty since all processes will print to the same console. (TODO is to fix)
+Takes two arguments: the path to a text file containing a list of paths to config files and a maximum number of jobs. For example:
+
+```bash
+./run_script_list_parallel_limited.sh ./configs/crate_tests/paths_to_run.txt 25
+```
+
+
 ---
 
 ## Stuff to do
